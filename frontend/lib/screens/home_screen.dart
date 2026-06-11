@@ -100,6 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showSnack(String message, {bool isError = false}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -145,57 +146,67 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMoodSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(5, (index) {
-              final level = index + 1;
-              final isSelected = _currentLevel == level;
-              return GestureDetector(
-                onTap: () => setState(() => _currentLevel = level),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? _moodColors[index].withValues(alpha: 0.18)
-                        : Colors.transparent,
-                    shape: BoxShape.circle,
-                  ),
-                  child: _getMoodIcon(level, size: isSelected ? 44 : 34),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 10),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: Text(
-              _moodLabels[_currentLevel - 1],
-              key: ValueKey(_currentLevel),
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                color: _moodColors[_currentLevel - 1],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Responsive icon size: scales down on narrow screens
+        final iconSize = (constraints.maxWidth / 7).clamp(28.0, 44.0);
+        final selectedSize = (iconSize * 1.25).clamp(32.0, 52.0);
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: List.generate(5, (index) {
+                  final level = index + 1;
+                  final isSelected = _currentLevel == level;
+                  return GestureDetector(
+                    onTap: () => setState(() => _currentLevel = level),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? _moodColors[index].withValues(alpha: 0.18)
+                            : Colors.transparent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: _getMoodIcon(
+                        level,
+                        size: isSelected ? selectedSize : iconSize,
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 10),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Text(
+                  _moodLabels[_currentLevel - 1],
+                  key: ValueKey(_currentLevel),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: _moodColors[_currentLevel - 1],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -224,6 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       confirmDismiss: (_) async {
+        if (!mounted) return false;
         return await showDialog<bool>(
               context: context,
               builder: (ctx) => AlertDialog(
@@ -395,116 +407,121 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _fetchMoods,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'How are you feeling?',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Log your mood to get personalized AI insights',
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-                    _buildMoodSelector(),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _noteController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        hintText: "What's on your mind? (optional)",
-                        hintStyle: TextStyle(color: Colors.grey[400]),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _fetchMoods,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'How are you feeling?',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
                         ),
-                        filled: true,
-                        fillColor: Theme.of(context).cardColor,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    FilledButton.icon(
-                      onPressed: _isAnalyzing ? null : _logMood,
-                      icon: _isAnalyzing
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.bolt_rounded),
-                      label: Text(
-                        _isAnalyzing
-                            ? 'Analyzing...'
-                            : 'Log Mood & Get AI Insight',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    if (_moods.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          const Text(
-                            'History',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${_moods.length} entries',
-                            style: TextStyle(
-                              color: Colors.grey[500],
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
+                        textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        'Swipe left to delete',
-                        style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                      const Text(
+                        'Log your mood to get personalized AI insights',
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildMoodSelector(),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _noteController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText: "What's on your mind? (optional)",
+                          hintStyle: TextStyle(color: Colors.grey[400]),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Theme.of(context).cardColor,
+                        ),
                       ),
                       const SizedBox(height: 14),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _moods.length,
-                        itemBuilder: (context, index) =>
-                            _buildHistoryItem(_moods[index]),
+                      FilledButton.icon(
+                        onPressed: _isAnalyzing ? null : _logMood,
+                        icon: _isAnalyzing
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.bolt_rounded),
+                        label: Text(
+                          _isAnalyzing
+                              ? 'Analyzing...'
+                              : 'Log Mood & Get AI Insight',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
                       ),
-                    ] else
-                      _buildEmptyState(),
-                  ],
+                      const SizedBox(height: 28),
+                      if (_moods.isNotEmpty) ...[
+                        Row(
+                          children: [
+                            const Text(
+                              'History',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${_moods.length} entries',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Swipe left to delete',
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _moods.length,
+                          itemBuilder: (context, index) =>
+                              _buildHistoryItem(_moods[index]),
+                        ),
+                      ] else
+                        _buildEmptyState(),
+                    ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 }

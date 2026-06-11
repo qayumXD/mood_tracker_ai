@@ -6,10 +6,10 @@ class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
 
   @override
-  State<StatsScreen> createState() => _StatsScreenState();
+  State<StatsScreen> createState() => StatsScreenState();
 }
 
-class _StatsScreenState extends State<StatsScreen> {
+class StatsScreenState extends State<StatsScreen> {
   final ApiService _apiService = ApiService();
   MoodStats? _stats;
   bool _isLoading = true;
@@ -21,20 +21,33 @@ class _StatsScreenState extends State<StatsScreen> {
     _fetchStats();
   }
 
+  /// Called externally (e.g. when the Analytics tab is re-selected) so that
+  /// stats always reflect the latest logged moods.
+  void refresh() {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    _fetchStats();
+  }
+
   Future<void> _fetchStats() async {
     try {
       final stats = await _apiService.fetchStats();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _stats = stats;
           _isLoading = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = 'Could not load stats.';
           _isLoading = false;
         });
+      }
     }
   }
 
@@ -97,11 +110,14 @@ class _StatsScreenState extends State<StatsScreen> {
       children: [
         Row(
           children: [
-            Text(
-              label,
-              style: TextStyle(fontWeight: FontWeight.w600, color: color),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(fontWeight: FontWeight.w600, color: color),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
             Text(
               '$count  (${(pct * 100).toStringAsFixed(0)}%)',
               style: const TextStyle(fontSize: 13, color: Colors.grey),
@@ -121,13 +137,20 @@ class _StatsScreenState extends State<StatsScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 600),
-                  height: 12,
-                  width: constraints.maxWidth * pct,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(8),
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(
+                    begin: 0,
+                    end: constraints.maxWidth * pct,
+                  ),
+                  duration: const Duration(milliseconds: 700),
+                  curve: Curves.easeOut,
+                  builder: (_, width, child) => Container(
+                    height: 12,
+                    width: width,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ],
@@ -225,146 +248,148 @@ class _StatsScreenState extends State<StatsScreen> {
         centerTitle: true,
         elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.cloud_off_rounded,
-                    size: 56,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(_error!, style: const TextStyle(color: Colors.grey)),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _isLoading = true;
-                        _error = null;
-                      });
-                      _fetchStats();
-                    },
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
-                  ),
-                ],
-              ),
-            )
-          : RefreshIndicator(
-              onRefresh: _fetchStats,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                child: _stats == null || _stats!.total == 0
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 80),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.bar_chart_rounded,
-                                size: 72,
-                                color: Colors.grey[300],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No data yet',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[500],
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.cloud_off_rounded,
+                      size: 56,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(_error!, style: const TextStyle(color: Colors.grey)),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _isLoading = true;
+                          _error = null;
+                        });
+                        _fetchStats();
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              )
+            : RefreshIndicator(
+                onRefresh: _fetchStats,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                  child: _stats == null || _stats!.total == 0
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 80),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.bar_chart_rounded,
+                                  size: 72,
+                                  color: Colors.grey[300],
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Log some moods to see stats here!',
-                                style: TextStyle(
-                                  color: Colors.grey[400],
-                                  fontSize: 13,
+                                const SizedBox(height: 12),
+                                Text(
+                                  'No data yet',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[500],
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Log some moods to see stats here!',
+                                  style: TextStyle(
+                                    color: Colors.grey[400],
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text(
+                              'Your Overview',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Based on ${_stats!.total} mood entries',
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                _buildStatCard(
+                                  title: 'Total Logs',
+                                  value: '${_stats!.total}',
+                                  icon: Icons.edit_note_rounded,
+                                  color: Colors.deepPurple,
+                                ),
+                                const SizedBox(width: 12),
+                                _buildStatCard(
+                                  title:
+                                      'Avg Mood\n${_moodLevelLabel(_stats!.avgLevel)}',
+                                  value: _stats!.avgLevel.toStringAsFixed(1),
+                                  icon: Icons.mood_rounded,
+                                  color: _avgColor(_stats!.avgLevel),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 28),
+                            const Text(
+                              'Mood Breakdown',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildBreakdownBar(
+                              'Positive (Good + Amazing)',
+                              _stats!.positiveCount,
+                              _stats!.total,
+                              const Color(0xFF66BB6A),
+                            ),
+                            _buildBreakdownBar(
+                              'Neutral (Okay)',
+                              _stats!.neutralCount,
+                              _stats!.total,
+                              const Color(0xFF78909C),
+                            ),
+                            _buildBreakdownBar(
+                              'Negative (Sad + Terrible)',
+                              _stats!.negativeCount,
+                              _stats!.total,
+                              const Color(0xFF42A5F5),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Smart Insights',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ..._buildSmartInsights(_stats!),
+                          ],
                         ),
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            'Your Overview',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Based on ${_stats!.total} mood entries',
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              _buildStatCard(
-                                title: 'Total Logs',
-                                value: '${_stats!.total}',
-                                icon: Icons.edit_note_rounded,
-                                color: Colors.deepPurple,
-                              ),
-                              const SizedBox(width: 12),
-                              _buildStatCard(
-                                title:
-                                    'Avg Mood\n${_moodLevelLabel(_stats!.avgLevel)}',
-                                value: _stats!.avgLevel.toStringAsFixed(1),
-                                icon: Icons.mood_rounded,
-                                color: _avgColor(_stats!.avgLevel),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 28),
-                          const Text(
-                            'Mood Breakdown',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildBreakdownBar(
-                            'Positive (Good + Amazing)',
-                            _stats!.positiveCount,
-                            _stats!.total,
-                            const Color(0xFF66BB6A),
-                          ),
-                          _buildBreakdownBar(
-                            'Neutral (Okay)',
-                            _stats!.neutralCount,
-                            _stats!.total,
-                            const Color(0xFF78909C),
-                          ),
-                          _buildBreakdownBar(
-                            'Negative (Sad + Terrible)',
-                            _stats!.negativeCount,
-                            _stats!.total,
-                            const Color(0xFF42A5F5),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Smart Insights',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ..._buildSmartInsights(_stats!),
-                        ],
-                      ),
+                ),
               ),
-            ),
+      ),
     );
   }
 }
